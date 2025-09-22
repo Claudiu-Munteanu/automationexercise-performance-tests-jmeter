@@ -1,4 +1,4 @@
-name: Automation Exercise - Performance Tests - JMeter
+name: JMeter Performance Test
 
 on:
   workflow_dispatch:
@@ -23,11 +23,19 @@ jobs:
           tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
           echo "JMETER_HOME=$PWD/apache-jmeter-${JMETER_VERSION}" >> $GITHUB_ENV
 
-      - name: Make script executable
-        run: chmod +x scripts/run-tests.sh
-
       - name: Run JMeter Test
-        run: ./scripts/run-tests.sh
+        run: |
+          # Clean up old results and create the necessary directories
+          rm -rf target/
+          mkdir -p target/reports
+          
+          # Execute the JMeter test directly
+          $JMETER_HOME/bin/jmeter \
+            -n \
+            -t "src/test/jmeter/Automation Exercise - Performance Tests - JMeter.jmx" \
+            -l "target/results/test-results.jtl" \
+            -e \
+            -o "target/reports"
 
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
