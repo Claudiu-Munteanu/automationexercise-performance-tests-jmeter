@@ -1,0 +1,28 @@
+# ############### #
+# IntelliJ IDEA   #
+# ############### #
+.idea/
+*.iml
+*.iws
+out/
+
+# ############### #
+# JMeter Output   #
+# ############### #
+target/
+results/
+reports/
+*.log
+*.jtl
+*.csv
+
+# ###################### #
+# Local Configuration    #
+# ###################### #
+user.properties
+
+# ############### #
+# OS Files        #
+# ############### #
+.DS_Store
+Thumbs.db
