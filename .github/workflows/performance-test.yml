@@ -56,8 +56,8 @@ jobs:
       - name: Run JMeter Test
         run: |
           rm -rf target/
+          mkdir -p target/results
           mkdir -p target/reports
-
           $JMETER_HOME/bin/jmeter \
             -n \
             -t "src/test/jmeter/Automation Exercise - Performance Tests - JMeter.jmx" \
@@ -68,10 +68,11 @@ jobs:
             -e \
             -o "target/reports"
 
-      - name: Upload JMeter report
-        uses: actions/upload-pages-artifact@v3
+      - name: Archive JMeter report
+        uses: actions/upload-artifact@v4
         with:
-          path: 'target/reports'
+          name: jmeter-report-artifact
+          path: target/reports
 
   deploy-report:
     needs: run-jmeter-tests
@@ -80,6 +81,35 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Download JMeter report artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jmeter-report-artifact
+          path: new-report
+
+      - name: Checkout previous reports from gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Prepare report for publishing
+        run: |
+          mkdir -p public
+          cp -r gh-pages/reports/* public/ || true
+          mkdir -p public/reports
+          mv new-report public/reports/${{ github.run_id }}
+          echo "<html><head><title>JMeter Reports</title></head><body><h1>JMeter Test Reports</h1><ul>" > public/index.html
+          for report in $(ls -r -d public/reports/*/ | xargs -n 1 basename | sort -rn); do
+            echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> public/index.html
+          done
+          echo "</ul></body></html>" >> public/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'public'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
