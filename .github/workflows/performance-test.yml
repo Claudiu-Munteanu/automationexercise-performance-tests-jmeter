@@ -2,9 +2,24 @@ name: JMeter Performance Test
 
 on:
   workflow_dispatch:
+    inputs:
+      threads:
+        description: 'Number of concurrent users (threads)'
+        required: true
+        default: '50'
+      rampup_time:
+        description: 'Ramp-up period in seconds'
+        required: true
+        default: '5'
+      duration:
+        description: 'Test duration in seconds'
+        required: false
+        default: '60'
 
 jobs:
   run-jmeter-tests:
+    env:
+      JMETER_VERSION: 5.6.3
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -20,29 +35,29 @@ jobs:
         id: jmeter-cache
         uses: actions/cache@v4
         with:
-          path: apache-jmeter-5.6.3
-          key: ${{ runner.os }}-jmeter-5.6.3
+          path: apache-jmeter-${{ env.JMETER_VERSION }}
+          key: ${{ runner.os }}-jmeter-${{ env.JMETER_VERSION }}
 
       - name: Setup JMeter
         if: steps.jmeter-cache.outputs.cache-hit != 'true'
         run: |
-          JMETER_VERSION="5.6.3"
-          wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
-          tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
-          echo "JMETER_HOME=$PWD/apache-jmeter-${JMETER_VERSION}" >> $GITHUB_ENV
+          wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${{ env.JMETER_VERSION }}.tgz
+          tar -xzf apache-jmeter-${{ env.JMETER_VERSION }}.tgz
 
-      - name: Set JMETER_HOME from Cache
-        if: steps.jmeter-cache.outputs.cache-hit == 'true'
-        run: echo "JMETER_HOME=$PWD/apache-jmeter-5.6.3" >> $GITHUB_ENV
+      - name: Set JMETER_HOME
+        run: echo "JMETER_HOME=$PWD/apache-jmeter-${{ env.JMETER_VERSION }}" >> $GITHUB_ENV
 
       - name: Run JMeter Test
         run: |
           rm -rf target/
           mkdir -p target/reports
-          
+
           $JMETER_HOME/bin/jmeter \
             -n \
             -t "src/test/jmeter/Automation Exercise - Performance Tests - JMeter.jmx" \
+            -Jthreads=${{ github.event.inputs.threads }} \
+            -Jrampup=${{ github.event.inputs.rampup_time }} \
+            -Jduration=${{ github.event.inputs.duration }} \
             -l "target/results/test-results.jtl" \
             -e \
             -o "target/reports"
@@ -50,5 +65,5 @@ jobs:
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
         with:
-          name: jmeter-html-report
+          name: jmeter-html-report-${{ github.run_id }}
           path: target/reports/
