@@ -98,13 +98,13 @@ jobs:
 
       - name: Prepare site content
         run: |
-          mkdir -p public/reports
+          mkdir -p public/reports/${{ github.run_id }}
           cp -r new-report/* public/reports/${{ github.run_id }}/
           echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > public/index.html
           for report in $(ls -r -d public/reports/*/ | xargs -n 1 basename | sort -rn); do
             echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> public/index.html
           done
-          echo "</ul></body></html>" >> reports_index.html
+          echo "</ul></body></html>" >> public/index.html
       - name: Deploy site
         id: deployment
         uses: peaceiris/actions-gh-pages@v4
