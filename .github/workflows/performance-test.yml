@@ -87,27 +87,24 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: jmeter-report-artifact
-          path: new-report
+          path: public/reports/${{ github.run_id }}
 
-      - name: Checkout existing reports
-        uses: actions/checkout@v4
-        continue-on-error: true
-        with:
-          ref: gh-pages
-          path: public
-
-      - name: Prepare site content
+      - name: Generate index of reports
         run: |
-          mkdir -p public/reports/${{ github.run_id }}
-          cp -r new-report/* public/reports/${{ github.run_id }}/
+          # This step will only run if there are existing reports to index
+          # It creates the main index.html that links to all reports
+          cd public
           echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > public/index.html
-          for report in $(ls -r -d public/reports/*/ | xargs -n 1 basename | sort -rn); do
+          for report in $(ls -d reports/*/ | xargs -n 1 basename | sort -rn); do
             echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> public/index.html
           done
-          echo "</ul></body></html>" >> public/index.html
+          echo "</ul></body></html>" >> index.html
+        if: ${{ always() }}
+
       - name: Deploy site
         id: deployment
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
+          keep_files: true
