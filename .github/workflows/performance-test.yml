@@ -83,32 +83,31 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Download JMeter report artifact
+      - name: Download new report artifact
         uses: actions/download-artifact@v4
         with:
           name: jmeter-report-artifact
           path: new-report
 
-      - name: Generate report index page
+      - name: Checkout existing reports
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: public
+
+      - name: Prepare site content
         run: |
-          # This script will now run inside the gh-pages checkout provided by the deployment action
-          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > reports_index.html
-          for report in $(ls -r -d reports/*/ | xargs -n 1 basename | sort -rn); do
+          mkdir -p public/reports
+          cp -r new-report/* public/reports/${{ github.run_id }}/
+          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > public/index.html
+          for report in $(ls -r -d public/reports/*/ | xargs -n 1 basename | sort -rn); do
             echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> public/index.html
           done
           echo "</ul></body></html>" >> reports_index.html
-
-      - name: Deploy to GitHub Pages
+      - name: Deploy site
         id: deployment
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
-          prepare: |
-            mkdir -p public/reports
-            # Copy historical reports from the checkout
-            cp -r reports/* public/reports/ || true
-            # Copy the new report
-            cp -r ../new-report public/reports/${{ github.run_id }}
-            # Copy the new index file
-            cp ../reports_index.html public/index.html
