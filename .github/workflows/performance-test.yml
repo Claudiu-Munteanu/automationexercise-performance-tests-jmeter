@@ -4,17 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       threads:
-        description: 'Number of concurrent users (threads)'
+        description: 'Number of Threads (users)'
         required: true
         default: '50'
       rampup_time:
-        description: 'Ramp-up period in seconds'
+        description: 'Ramp-up period (seconds)'
         required: true
         default: '5'
-      duration:
-        description: 'Test duration in seconds'
-        required: false
-        default: '60'
+      loop_count:
+        description: 'Loop Count'
+        required: true
+        default: '1'
 
 permissions:
   contents: read
@@ -63,7 +63,7 @@ jobs:
             -t "src/test/jmeter/Automation Exercise - Performance Tests - JMeter.jmx" \
             -Jthreads=${{ github.event.inputs.threads }} \
             -Jrampup=${{ github.event.inputs.rampup_time }} \
-            -Jduration=${{ github.event.inputs.duration }} \
+            -Jloops=${{ github.event.inputs.loop_count }} \
             -l "target/results/test-results.jtl" \
             -e \
             -o "target/reports"
@@ -89,17 +89,23 @@ jobs:
 
       - name: Checkout previous reports from gh-pages
         uses: actions/checkout@v4
+        continue-on-error: true
         with:
           ref: gh-pages
           path: gh-pages
 
       - name: Prepare report for publishing
         run: |
-          mkdir -p public
-          cp -r gh-pages/reports/* public/ || true
           mkdir -p public/reports
+
+          # Safely copy old reports if the gh-pages checkout was successful
+          if [ -d "gh-pages/reports" ]; then
+            cp -r gh-pages/reports/* public/reports/
+          fi
+
           mv new-report public/reports/${{ github.run_id }}
-          echo "<html><head><title>JMeter Reports</title></head><body><h1>JMeter Test Reports</h1><ul>" > public/index.html
+
+          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > public/index.html
           for report in $(ls -r -d public/reports/*/ | xargs -n 1 basename | sort -rn); do
             echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> public/index.html
           done
