@@ -62,8 +62,8 @@ jobs:
             -n \
             -t "src/test/jmeter/Automation Exercise - Performance Tests - JMeter.jmx" \
             -Jthreads=${{ github.event.inputs.threads }} \
-            -Jrampup=${{ github.event.inputs.rampup_time }} \
-            -Jloops=${{ github.event.inputs.loop_count }} \
+            -Jrampup_time=${{ github.event.inputs.rampup_time }} \
+            -Jloop_count=${{ github.event.inputs.loop_count }} \
             -l "target/results/test-results.jtl" \
             -e \
             -o "target/reports"
