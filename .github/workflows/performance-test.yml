@@ -92,9 +92,9 @@ jobs:
       - name: Generate index of reports
         run: |
           cd public
-          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > public/index.html
+          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > index.html
           for report in $(ls -d reports/*/ | xargs -n 1 basename | sort -rn); do
-            echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> public/index.html
+            echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> index.html
           done
           echo "</ul></body></html>" >> index.html
         if: ${{ always() }}
