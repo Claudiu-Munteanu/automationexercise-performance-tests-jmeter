@@ -74,7 +74,7 @@ jobs:
           name: jmeter-report-artifact
           path: target/reports
 
-  publish-report-to-pages:
+  deploy-report:
     needs: run-jmeter-tests
     runs-on: ubuntu-latest
     permissions:
@@ -83,6 +83,7 @@ jobs:
       id-token: write
     environment:
       name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Download new report artifact
         uses: actions/download-artifact@v4
@@ -90,9 +91,14 @@ jobs:
           name: jmeter-report-artifact
           path: public/reports/${{ github.run_id }}
 
-      - name: Generate index of reports
+      - name: Prepare report for publishing
         run: |
-          cd public
+          mkdir -p public/reports
+          # Safely copy old reports if the gh-pages checkout was successful
+          if [ -d "gh-pages/reports" ]; then
+            cp -r gh-pages/reports/* public/reports/
+          fi
+          mv new-report public/reports/${{ github.run_id }}
           echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > index.html
           for report in $(ls -d reports/*/ | xargs -n 1 basename | sort -rn); do
             echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> index.html
@@ -100,7 +106,7 @@ jobs:
           echo "</ul></body></html>" >> index.html
         if: ${{ always() }}
 
-      - name: Deploy site
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: peaceiris/actions-gh-pages@v4
         with:
