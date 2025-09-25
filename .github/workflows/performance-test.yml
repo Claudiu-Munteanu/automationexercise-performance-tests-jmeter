@@ -83,30 +83,32 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout GitHub Pages branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: gh-pages
-
       - name: Download JMeter report artifact
         uses: actions/download-artifact@v4
         with:
           name: jmeter-report-artifact
-          path: gh-pages/reports/${{ github.run_id }}
+          path: new-report
 
       - name: Generate report index page
-        working-directory: gh-pages
         run: |
-          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > index.html
+          # This script will now run inside the gh-pages checkout provided by the deployment action
+          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > reports_index.html
           for report in $(ls -r -d reports/*/ | xargs -n 1 basename | sort -rn); do
             echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> public/index.html
           done
-          echo "</ul></body></html>" >> public/index.html
+          echo "</ul></body></html>" >> reports_index.html
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./gh-pages
+          publish_dir: ./public
+          prepare: |
+            mkdir -p public/reports
+            # Copy historical reports from the checkout
+            cp -r reports/* public/reports/ || true
+            # Copy the new report
+            cp -r ../new-report public/reports/${{ github.run_id }}
+            # Copy the new index file
+            cp ../reports_index.html public/index.html
