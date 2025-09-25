@@ -68,6 +68,9 @@ jobs:
             -e \
             -o "target/reports"
 
+      - name: Record test execution timestamp
+        run: date -u --iso-8601=seconds > target/reports/run_timestamp.txt
+
       - name: Archive JMeter report
         uses: actions/upload-artifact@v4
         with:
@@ -109,37 +112,149 @@ jobs:
           mv new_report public/reports/${{ github.run_id }}
 
           echo "Generating new index.html..."
-          {
-            echo '<html><head><title>JMeter Performance Reports</title><style>'
-            echo 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; margin: 40px auto; max-width: 800px; line-height: 1.6; color: #333; background-color: #f6f8fa; }'
-            echo 'h1 { font-size: 2em; color: #111; border-bottom: 2px solid #eee; padding-bottom: 10px; }'
-            echo 'ul { list-style-type: none; padding: 0; }'
-            echo 'li { margin: 1em 0; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }'
-            echo 'li a { display: block; padding: 15px 20px; text-decoration: none; color: #0366d6; font-weight: 600; transition: background-color 0.2s ease-in-out; }'
-            echo 'li a:hover { background-color: #eef4fa; }'
-            echo '.report-meta { font-size: 0.85em; color: #666; padding: 0 20px 15px; }'
-            echo '</style></head><body><h1>JMeter Performance Test Reports</h1><ul>'
-          } > public/index.html
+          cat << 'EOF' > public/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>JMeter Performance Reports</title>
+              <style>
+                  :root {
+                      --bg-color: #f6f8fa;
+                      --text-color: #24292e;
+                      --card-bg-color: #ffffff;
+                      --border-color: #e1e4e8;
+                      --link-color: #0366d6;
+                      --link-hover-bg: #f1f8ff;
+                      --header-border-color: #eaecef;
+                      --meta-color: #586069;
+                      --icon-color: #6a737d;
+                      --shadow-color: rgba(0,0,0,0.08);
+                  }
+                  html.dark-mode {
+                      --bg-color: #0d1117;
+                      --text-color: #c9d1d9;
+                      --card-bg-color: #161b22;
+                      --border-color: #30363d;
+                      --link-color: #58a6ff;
+                      --link-hover-bg: #1f6feb26;
+                      --header-border-color: #21262d;
+                      --meta-color: #8b949e;
+                      --icon-color: #8b949e;
+                      --shadow-color: rgba(0,0,0,0.2);
+                  }
+                  body {
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+                      margin: 0;
+                      background-color: var(--bg-color);
+                      color: var(--text-color);
+                      line-height: 1.6;
+                      transition: background-color 0.3s, color 0.3s;
+                  }
+                  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+                  header {
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                      padding-bottom: 20px;
+                      border-bottom: 1px solid var(--header-border-color);
+                      margin-bottom: 30px;
+                  }
+                  h1 { font-size: 2em; margin: 0; }
+                  #theme-toggle {
+                      background: none;
+                      border: 1px solid var(--border-color);
+                      border-radius: 50%;
+                      width: 40px;
+                      height: 40px;
+                      cursor: pointer;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      color: var(--icon-color);
+                      transition: background-color 0.2s, border-color 0.2s;
+                  }
+                  #theme-toggle:hover { background-color: var(--link-hover-bg); }
+                  ul { list-style-type: none; padding: 0; }
+                  li {
+                      margin-bottom: 1em;
+                      background-color: var(--card-bg-color);
+                      border: 1px solid var(--border-color);
+                      border-radius: 8px;
+                      transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+                      overflow: hidden;
+                  }
+                  li:hover { box-shadow: 0 5px 15px var(--shadow-color); transform: translateY(-2px); }
+                  .report-link {
+                      display: flex;
+                      align-items: center;
+                      justify-content: space-between;
+                      padding: 20px;
+                      text-decoration: none;
+                      color: var(--link-color);
+                      transition: background-color 0.2s ease-in-out;
+                  }
+                  .report-link:hover { background-color: var(--link-hover-bg); }
+                  .report-info { flex-grow: 1; }
+                  .report-title { font-weight: 600; font-size: 1.1em; margin: 0 0 5px 0; color: var(--text-color); }
+                  html.dark-mode .report-title { color: var(--link-color); }
+                  .report-meta { font-size: 0.85em; color: var(--meta-color); margin: 0; }
+                  .report-arrow svg { width: 24px; height: 24px; color: var(--icon-color); }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <header>
+                      <h1>JMeter Performance Reports</h1>
+                      <button id="theme-toggle" title="Toggle dark mode"></button>
+                  </header>
+                  <main>
+                      <ul id="report-list"><!-- Report items will be injected here --></ul>
+                  </main>
+              </div>
+              <script>
+                  const themeToggle = document.getElementById('theme-toggle');
+                  const sunIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
+                  const moonIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+                  const applyTheme = (theme) => {
+                      if (theme === 'dark') {
+                          document.documentElement.classList.add('dark-mode');
+                          themeToggle.innerHTML = sunIcon;
+                      } else {
+                          document.documentElement.classList.remove('dark-mode');
+                          themeToggle.innerHTML = moonIcon;
+                      }
+                  };
+                  const preferredTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                  applyTheme(preferredTheme);
+                  themeToggle.addEventListener('click', () => {
+                      const newTheme = document.documentElement.classList.contains('dark-mode') ? 'light' : 'dark';
+                      localStorage.setItem('theme', newTheme);
+                      applyTheme(newTheme);
+                  });
+              </script>
+          </body>
+          </html>
+          EOF
 
           cd public/reports
-
+          REPORT_ITEMS_HTML=""
           for report_id in $(ls -d */ | sed 's,/$,,' | sort -rn); do
-              # Get a timestamp from the directory's creation time
-              TIMESTAMP=$(date -r "$report_id" "+%B %d, %Y at %I:%M %p %Z")
-              {
-                echo "  <li>"
-                # Note: The link is now relative to the root of the site
-                echo "    <a href='reports/$report_id/index.html'>Test Report from Run #$report_id</a>"
-                echo "    <div class='report-meta'>Generated on: $TIMESTAMP</div>"
-                echo "  </li>"
-              } >> ../index.html
+              if [ -f "$report_id/run_timestamp.txt" ]; then
+                  TIMESTAMP_ISO=$(cat "$report_id/run_timestamp.txt")
+                  TIMESTAMP=$(date -d "$TIMESTAMP_ISO" "+%B %d, %Y at %I:%M %p %Z")
+              else
+                  TIMESTAMP=$(date -r "$report_id" "+%B %d, %Y at %I:%M %p %Z")
+              fi
+          
+              ITEM="<li><a href='reports/$report_id/index.html' class='report-link'><div class='report-info'><p class='report-title'>Test Report from Run #${report_id}</p><p class='report-meta'>Generated on: ${TIMESTAMP}</p></div><div class='report-arrow'><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></div></a></li>"
+              REPORT_ITEMS_HTML="${REPORT_ITEMS_HTML}${ITEM}"
           done
-
-          cd ../..
-
-          {
-            echo '</ul></body></html>'
-          } >> public/index.html
+          
+          cd ..
+          awk -v replacement="$REPORT_ITEMS_HTML" '{gsub(/<!-- Report items will be injected here -->/, replacement); print}' index.html > index.tmp && mv index.tmp index.html
+          cd ..
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
