@@ -74,48 +74,39 @@ jobs:
           name: jmeter-report-artifact
           path: target/reports
 
-  deploy-report:
+  publish-report-to-pages:
     needs: run-jmeter-tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Download JMeter report artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: jmeter-report-artifact
-          path: new-report
-
-      - name: Checkout previous reports from gh-pages
+      - name: Checkout GitHub Pages branch
         uses: actions/checkout@v4
-        continue-on-error: true
         with:
           ref: gh-pages
           path: gh-pages
 
-      - name: Prepare report for publishing
+      - name: Download JMeter report artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jmeter-report-artifact
+          path: gh-pages/reports/${{ github.run_id }}
+
+      - name: Generate report index page
+        working-directory: gh-pages
         run: |
-          mkdir -p public/reports
-
-          # Safely copy old reports if the gh-pages checkout was successful
-          if [ -d "gh-pages/reports" ]; then
-            cp -r gh-pages/reports/* public/reports/
-          fi
-
-          mv new-report public/reports/${{ github.run_id }}
-
-          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > public/index.html
-          for report in $(ls -r -d public/reports/*/ | xargs -n 1 basename | sort -rn); do
+          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > index.html
+          for report in $(ls -r -d reports/*/ | xargs -n 1 basename | sort -rn); do
             echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> public/index.html
           done
           echo "</ul></body></html>" >> public/index.html
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'public'
-
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages
