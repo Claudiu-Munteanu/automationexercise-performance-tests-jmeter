@@ -6,7 +6,7 @@
   </a>
 </p>
 <p align="center">
-  <a href="https://claudiu-munteanu.github.io/automationexercise-performance-tests-jmeter//">
+  <a href="https://claudiu-munteanu.github.io/automationexercise-performance-tests-jmeter/">
     <img src="https://img.shields.io/badge/JMeter_Reports:-Click Here-4e7eff?logo=allure&logoColor=white" alt="JMeter Reports" width="340"/>
   </a>
 </p>
