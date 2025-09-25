@@ -55,7 +55,6 @@ jobs:
 
       - name: Run JMeter Test
         run: |
-          # Clean and create directories for results and the HTML report
           rm -rf target/
           mkdir -p target/results
           mkdir -p target/reports
@@ -75,16 +74,11 @@ jobs:
           name: jmeter-report-artifact
           path: target/reports
 
-  deploy-report:
+  build-report-site:
     needs: run-jmeter-tests
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: read
     steps:
       - name: Download new report artifact
         uses: actions/download-artifact@v4
@@ -92,7 +86,7 @@ jobs:
           name: jmeter-report-artifact
           path: new_report
 
-      - name: Checkout GitHub Pages branch
+      - name: Checkout GitHub Pages branch for history
         uses: actions/checkout@v4
         with:
           ref: 'gh-pages'
@@ -134,6 +128,7 @@ jobs:
               TIMESTAMP=$(date -r "$report_id" "+%B %d, %Y at %I:%M %p %Z")
               {
                 echo "  <li>"
+                # Note: The link is now relative to the root of the site
                 echo "    <a href='reports/$report_id/index.html'>Test Report from Run #$report_id</a>"
                 echo "    <div class='report-meta'>Generated on: $TIMESTAMP</div>"
                 echo "  </li>"
@@ -146,9 +141,22 @@ jobs:
             echo '</ul></body></html>'
           } >> public/index.html
 
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+  deploy-to-pages:
+    needs: build-report-site
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
+        uses: actions/deploy-pages@v4
+
