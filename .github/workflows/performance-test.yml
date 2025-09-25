@@ -1,4 +1,4 @@
-name: performance-test
+name: JMeter Performance Test & Report
 
 on:
   workflow_dispatch:
@@ -68,9 +68,6 @@ jobs:
             -e \
             -o "target/reports"
 
-      - name: Record test execution timestamp
-        run: date -u --iso-8601=seconds > target/reports/run_timestamp.txt
-
       - name: Archive JMeter report
         uses: actions/upload-artifact@v4
         with:
@@ -100,14 +97,10 @@ jobs:
           set -e
 
           mkdir -p public/reports
-
           if [ -d "gh-pages/reports" ]; then
             echo "Copying previous reports..."
             cp -r gh-pages/reports/* public/reports/
-          else
-            echo "No previous reports found. This might be the first run."
           fi
-
           echo "Adding new report for run #${{ github.run_id }}..."
           mv new_report public/reports/${{ github.run_id }}
 
@@ -119,142 +112,188 @@ jobs:
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <title>JMeter Performance Reports</title>
+              <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
               <style>
                   :root {
-                      --bg-color: #f6f8fa;
-                      --text-color: #24292e;
-                      --card-bg-color: #ffffff;
-                      --border-color: #e1e4e8;
-                      --link-color: #0366d6;
-                      --link-hover-bg: #f1f8ff;
-                      --header-border-color: #eaecef;
-                      --meta-color: #586069;
-                      --icon-color: #6a737d;
-                      --shadow-color: rgba(0,0,0,0.08);
+                      --bg-color: #f6f8fa; --text-color: #24292e; --card-bg-color: #ffffff;
+                      --border-color: #e1e4e8; --link-color: #0366d6; --link-hover-bg: #f1f8ff;
+                      --header-border-color: #eaecef; --meta-color: #586069; --icon-color: #6a737d;
+                      --shadow-color: rgba(149, 157, 165, 0.1); --latest-bg: linear-gradient(135deg, #f1f8ff 0%, #ffffff 100%);
+                      --latest-border: #0366d6; --grid-bg: repeating-linear-gradient(90deg, transparent, transparent 19px, #e1e4e830 20px);
                   }
                   html.dark-mode {
-                      --bg-color: #0d1117;
-                      --text-color: #c9d1d9;
-                      --card-bg-color: #161b22;
-                      --border-color: #30363d;
-                      --link-color: #58a6ff;
-                      --link-hover-bg: #1f6feb26;
-                      --header-border-color: #21262d;
-                      --meta-color: #8b949e;
-                      --icon-color: #8b949e;
-                      --shadow-color: rgba(0,0,0,0.2);
+                      --bg-color: #0d1117; --text-color: #c9d1d9; --card-bg-color: #161b22;
+                      --border-color: #30363d; --link-color: #58a6ff; --link-hover-bg: #1f6feb26;
+                      --header-border-color: #21262d; --meta-color: #8b949e; --icon-color: #8b949e;
+                      --shadow-color: rgba(0, 0, 0, 0.2); --latest-bg: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+                      --latest-border: #58a6ff; --grid-bg: repeating-linear-gradient(90deg, transparent, transparent 19px, #30363d80 20px);
                   }
                   body {
-                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-                      margin: 0;
-                      background-color: var(--bg-color);
-                      color: var(--text-color);
-                      line-height: 1.6;
-                      transition: background-color 0.3s, color 0.3s;
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                      margin: 0; background-color: var(--bg-color); color: var(--text-color);
+                      line-height: 1.6; transition: background-color 0.3s, color 0.3s;
                   }
-                  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+                  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
                   header {
-                      display: flex;
-                      justify-content: space-between;
-                      align-items: center;
-                      padding-bottom: 20px;
-                      border-bottom: 1px solid var(--header-border-color);
-                      margin-bottom: 30px;
+                      display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px;
+                      border-bottom: 1px solid var(--header-border-color); margin-bottom: 30px;
                   }
-                  h1 { font-size: 2em; margin: 0; }
+                  h1 { font-size: 1.8em; margin: 0; }
+                  .main-layout { display: grid; grid-template-columns: 300px 1fr; gap: 30px; }
+                  .sidebar { max-height: 80vh; overflow-y: auto; padding-right: 15px; }
+                  .main-content { min-width: 0; }
                   #theme-toggle {
-                      background: none;
-                      border: 1px solid var(--border-color);
-                      border-radius: 50%;
-                      width: 40px;
-                      height: 40px;
-                      cursor: pointer;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      color: var(--icon-color);
-                      transition: background-color 0.2s, border-color 0.2s;
+                      background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 40px;
+                      height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+                      color: var(--icon-color); transition: background-color 0.2s, border-color 0.2s;
                   }
                   #theme-toggle:hover { background-color: var(--link-hover-bg); }
-                  ul { list-style-type: none; padding: 0; }
+                  ul { list-style-type: none; padding: 0; margin: 0; }
                   li {
-                      margin-bottom: 1em;
-                      background-color: var(--card-bg-color);
-                      border: 1px solid var(--border-color);
-                      border-radius: 8px;
-                      transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
-                      overflow: hidden;
+                      border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px;
+                      transition: box-shadow 0.2s, transform 0.2s;
                   }
-                  li:hover { box-shadow: 0 5px 15px var(--shadow-color); transform: translateY(-2px); }
-                  .report-link {
-                      display: flex;
-                      align-items: center;
-                      justify-content: space-between;
-                      padding: 20px;
-                      text-decoration: none;
-                      color: var(--link-color);
-                      transition: background-color 0.2s ease-in-out;
+                  li:not(.latest-run) { opacity: 0.8; }
+                  li:hover { box-shadow: 0 4px 12px var(--shadow-color); transform: translateY(-2px); }
+                  .latest-run { border-color: var(--latest-border); background: var(--latest-bg); }
+                  a.report-link {
+                      display: block; padding: 15px; text-decoration: none; color: var(--link-color);
                   }
-                  .report-link:hover { background-color: var(--link-hover-bg); }
-                  .report-info { flex-grow: 1; }
-                  .report-title { font-weight: 600; font-size: 1.1em; margin: 0 0 5px 0; color: var(--text-color); }
-                  html.dark-mode .report-title { color: var(--link-color); }
-                  .report-meta { font-size: 0.85em; color: var(--meta-color); margin: 0; }
-                  .report-arrow svg { width: 24px; height: 24px; color: var(--icon-color); }
+                  .report-title { font-weight: 600; font-size: 1em; margin: 0; color: var(--text-color); }
+                  html.dark-mode .latest-run .report-title { color: var(--link-color); }
+                  .latest-badge {
+                      font-size: 0.75em; font-weight: 600; color: var(--latest-border);
+                      background-color: var(--link-hover-bg); padding: 2px 6px; border-radius: 4px;
+                      margin-left: 8px; display: inline-block;
+                  }
+                  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-bottom: 30px; }
+                  .summary-card { background-color: var(--card-bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; }
+                  .summary-card h3 { margin: 0 0 10px; font-size: 1em; color: var(--meta-color); }
+                  .summary-card p { margin: 0; font-size: 1.8em; font-weight: 600; }
+                  .chart-container { background-color: var(--card-bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; background-image: var(--grid-bg); }
               </style>
           </head>
           <body>
               <div class="container">
-                  <header>
-                      <h1>JMeter Performance Reports</h1>
-                      <button id="theme-toggle" title="Toggle dark mode"></button>
-                  </header>
-                  <main>
-                      <ul id="report-list"><!-- Report items will be injected here --></ul>
-                  </main>
+                  <header><h1>JMeter Performance Reports</h1><button id="theme-toggle" title="Toggle dark mode"></button></header>
+                  <div class="main-layout">
+                      <aside class="sidebar"><ul id="report-list"></ul></aside>
+                      <main class="main-content">
+                          <div class="summary-grid">
+                              <div class="summary-card"><h3>Avg. Response Time</h3><p id="latest-avg-time">-- ms</p></div>
+                              <div class="summary-card"><h3>Error Rate</h3><p id="latest-error-rate">-- %</p></div>
+                              <div class="summary-card"><h3>Throughput</h3><p id="latest-throughput">--/sec</p></div>
+                          </div>
+                          <div class="chart-container"><canvas id="performance-chart"></canvas></div>
+                      </main>
+                  </div>
               </div>
               <script>
+                  // Theme toggle logic (unchanged)
                   const themeToggle = document.getElementById('theme-toggle');
                   const sunIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
                   const moonIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
                   const applyTheme = (theme) => {
-                      if (theme === 'dark') {
-                          document.documentElement.classList.add('dark-mode');
-                          themeToggle.innerHTML = sunIcon;
-                      } else {
-                          document.documentElement.classList.remove('dark-mode');
-                          themeToggle.innerHTML = moonIcon;
-                      }
+                      if (theme === 'dark') { document.documentElement.classList.add('dark-mode'); themeToggle.innerHTML = sunIcon; } 
+                      else { document.documentElement.classList.remove('dark-mode'); themeToggle.innerHTML = moonIcon; }
                   };
                   const preferredTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                   applyTheme(preferredTheme);
                   themeToggle.addEventListener('click', () => {
                       const newTheme = document.documentElement.classList.contains('dark-mode') ? 'light' : 'dark';
-                      localStorage.setItem('theme', newTheme);
-                      applyTheme(newTheme);
+                      localStorage.setItem('theme', newTheme); applyTheme(newTheme);
                   });
+                  // Data loading and rendering logic
+                  async function loadPerformanceData() {
+                      try {
+                          const response = await fetch('./performance-data.json');
+                          if (!response.ok) throw new Error('Network response was not ok');
+                          const data = await response.json();
+                          renderReportList(data);
+                          renderLatestStats(data[0]);
+                          renderChart(data);
+                      } catch (error) {
+                          console.error('Failed to load performance data:', error);
+                          document.getElementById('report-list').innerHTML = '<li>Error loading reports.</li>';
+                      }
+                  }
+                  function renderReportList(data) {
+                      const list = document.getElementById('report-list');
+                      list.innerHTML = data.map((run, index) => {
+                          const isLatest = index === 0;
+                          const latestClass = isLatest ? 'latest-run' : '';
+                          const latestBadge = isLatest ? '<span class="latest-badge">Latest</span>' : '';
+                          return `<li class="${latestClass}">
+                                      <a href="reports/${run.runId}/index.html" class="report-link">
+                                          <p class="report-title">Run #${run.runId}${latestBadge}</p>
+                                      </a>
+                                  </li>`;
+                      }).join('');
+                  }
+                  function renderLatestStats(latestRun) {
+                      if (!latestRun) return;
+                      document.getElementById('latest-avg-time').textContent = `${latestRun.avgResponseTime.toLocaleString()} ms`;
+                      document.getElementById('latest-error-rate').textContent = `${latestRun.errorPct.toFixed(2)} %`;
+                      document.getElementById('latest-throughput').textContent = `${latestRun.throughput.toFixed(2)}/sec`;
+                  }
+                  function renderChart(data) {
+                      const ctx = document.getElementById('performance-chart').getContext('2d');
+                      const reversedData = [...data].reverse();
+                      const labels = reversedData.map(run => `#${run.runId}`);
+                      const avgTimeData = reversedData.map(run => run.avgResponseTime);
+                      const errorPctData = reversedData.map(run => run.errorPct);
+                      const isDarkMode = document.documentElement.classList.contains('dark-mode');
+                      const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                      const textColor = isDarkMode ? '#c9d1d9' : '#24292e';
+                      new Chart(ctx, {
+                          type: 'line',
+                          data: {
+                              labels: labels,
+                              datasets: [
+                                  {
+                                      label: 'Avg. Response Time (ms)', yAxisID: 'y', borderColor: '#0366d6',
+                                      backgroundColor: '#0366d630', data: avgTimeData, tension: 0.1
+                                  },
+                                  {
+                                      label: 'Error Rate (%)', yAxisID: 'y1', borderColor: '#d73a49',
+                                      backgroundColor: '#d73a4930', data: errorPctData, tension: 0.1
+                                  }
+                              ]
+                          },
+                          options: {
+                              responsive: true, maintainAspectRatio: false,
+                              scales: {
+                                  y: { position: 'left', title: { display: true, text: 'Response Time (ms)', color: textColor }, ticks: { color: textColor }, grid: { color: gridColor } },
+                                  y1: { position: 'right', title: { display: true, text: 'Error Rate (%)', color: textColor }, ticks: { color: textColor }, grid: { drawOnChartArea: false } }
+                              },
+                              plugins: { legend: { labels: { color: textColor } } }
+                          }
+                      });
+                  }
+                  document.addEventListener('DOMContentLoaded', loadPerformanceData);
               </script>
           </body>
           </html>
           EOF
 
-          cd public/reports
-          REPORT_ITEMS_HTML=""
-          for report_id in $(ls -d */ | sed 's,/$,,' | sort -rn); do
-              if [ -f "$report_id/run_timestamp.txt" ]; then
-                  TIMESTAMP_ISO=$(cat "$report_id/run_timestamp.txt")
-                  TIMESTAMP=$(date -d "$TIMESTAMP_ISO" "+%B %d, %Y at %I:%M %p %Z")
-              else
-                  TIMESTAMP=$(date -r "$report_id" "+%B %d, %Y at %I:%M %p %Z")
+          echo "Generating performance-data.json..."
+          JSON_DATA="["
+          FIRST=true
+          for report_id in $(ls -d public/reports/*/ | sed 's,public/reports/\(.*\)/,\1,' | sort -rn); do
+            STATS_FILE="public/reports/$report_id/statistics.json"
+            if [ -f "$STATS_FILE" ]; then
+              if [ "$FIRST" = false ]; then
+                JSON_DATA="$JSON_DATA,"
               fi
-          
-              ITEM="<li><a href='reports/$report_id/index.html' class='report-link'><div class='report-info'><p class='report-title'>Test Report from Run #${report_id}</p><p class='report-meta'>Generated on: ${TIMESTAMP}</p></div><div class='report-arrow'><svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg></div></a></li>"
-              REPORT_ITEMS_HTML="${REPORT_ITEMS_HTML}${ITEM}"
+              AVG_TIME=$(jq '.Total.meanResTime' "$STATS_FILE")
+              ERROR_PCT=$(jq '.Total.errorPct' "$STATS_FILE")
+              THROUGHPUT=$(jq '.Total.throughput' "$STATS_FILE")
+              JSON_DATA="$JSON_DATA{\"runId\": \"$report_id\", \"avgResponseTime\": $AVG_TIME, \"errorPct\": $ERROR_PCT, \"throughput\": $THROUGHPUT}"
+              FIRST=false
+            fi
           done
-          
-          cd ..
-          awk -v replacement="$REPORT_ITEMS_HTML" '{gsub(/<!-- Report items will be injected here -->/, replacement); print}' index.html > index.tmp && mv index.tmp index.html
-          cd ..
+          JSON_DATA="$JSON_DATA]"
+          echo "$JSON_DATA" > public/performance-data.json
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -274,4 +313,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
