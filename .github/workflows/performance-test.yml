@@ -16,22 +16,22 @@ on:
         required: true
         default: '1'
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
   run-jmeter-tests:
+    runs-on: ubuntu-latest
     env:
       JMETER_VERSION: 5.6.3
-    environment: jmeter-report
-    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java for JMeter
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -50,11 +50,12 @@ jobs:
           wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${{ env.JMETER_VERSION }}.tgz
           tar -xzf apache-jmeter-${{ env.JMETER_VERSION }}.tgz
 
-      - name: Set JMETER_HOME
+      - name: Set JMETER_HOME environment variable
         run: echo "JMETER_HOME=$PWD/apache-jmeter-${{ env.JMETER_VERSION }}" >> $GITHUB_ENV
 
       - name: Run JMeter Test
         run: |
+          # Clean and create directories for results and the HTML report
           rm -rf target/
           mkdir -p target/results
           mkdir -p target/reports
@@ -89,22 +90,61 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: jmeter-report-artifact
-          path: public/reports/${{ github.run_id }}
+          path: new_report
 
-      - name: Prepare report for publishing
+      - name: Checkout GitHub Pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: 'gh-pages'
+          path: 'gh-pages'
+
+      - name: Prepare site for publishing
         run: |
+          set -e
+
           mkdir -p public/reports
-          # Safely copy old reports if the gh-pages checkout was successful
+
           if [ -d "gh-pages/reports" ]; then
+            echo "Copying previous reports..."
             cp -r gh-pages/reports/* public/reports/
+          else
+            echo "No previous reports found. This might be the first run."
           fi
-          mv new-report public/reports/${{ github.run_id }}
-          echo "<html><head><title>JMeter Reports</title><style>body { font-family: sans-serif; margin: 2em; } ul { list-style-type: none; padding-left: 0; } li { margin: 0.5em 0; } a { text-decoration: none; color: #0366d6; } a:hover { text-decoration: underline; }</style></head><body><h1>JMeter Test Reports</h1><ul>" > index.html
-          for report in $(ls -d reports/*/ | xargs -n 1 basename | sort -rn); do
-            echo "<li><a href='reports/$report/index.html'>Run #$report</a></li>" >> index.html
+
+          echo "Adding new report for run #${{ github.run_id }}..."
+          mv new_report public/reports/${{ github.run_id }}
+
+          echo "Generating new index.html..."
+          {
+            echo '<html><head><title>JMeter Performance Reports</title><style>'
+            echo 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; margin: 40px auto; max-width: 800px; line-height: 1.6; color: #333; background-color: #f6f8fa; }'
+            echo 'h1 { font-size: 2em; color: #111; border-bottom: 2px solid #eee; padding-bottom: 10px; }'
+            echo 'ul { list-style-type: none; padding: 0; }'
+            echo 'li { margin: 1em 0; background-color: #fff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }'
+            echo 'li a { display: block; padding: 15px 20px; text-decoration: none; color: #0366d6; font-weight: 600; transition: background-color 0.2s ease-in-out; }'
+            echo 'li a:hover { background-color: #eef4fa; }'
+            echo '.report-meta { font-size: 0.85em; color: #666; padding: 0 20px 15px; }'
+            echo '</style></head><body><h1>JMeter Performance Test Reports</h1><ul>'
+          } > public/index.html
+
+          cd public/reports
+
+          for report_id in $(ls -d */ | sed 's,/$,,' | sort -rn); do
+              # Get a timestamp from the directory's creation time
+              TIMESTAMP=$(date -r "$report_id" "+%B %d, %Y at %I:%M %p %Z")
+              {
+                echo "  <li>"
+                echo "    <a href='reports/$report_id/index.html'>Test Report from Run #$report_id</a>"
+                echo "    <div class='report-meta'>Generated on: $TIMESTAMP</div>"
+                echo "  </li>"
+              } >> ../index.html
           done
-          echo "</ul></body></html>" >> index.html
-        if: ${{ always() }}
+
+          cd ../..
+
+          {
+            echo '</ul></body></html>'
+          } >> public/index.html
 
       - name: Deploy to GitHub Pages
         id: deployment
@@ -112,4 +152,3 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
-          keep_files: true
