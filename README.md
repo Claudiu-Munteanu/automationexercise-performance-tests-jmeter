@@ -1,22 +1,40 @@
 <h1 align="center">AutomationExercise API - Performance Tests (JMeter)</h1>
 
 <p align="center">
+  <a href="https://github.com/Claudiu-Munteanu/automationexercise-performance-tests-jmeter/actions/workflows/performance-test.yml">
+    <img src="https://github.com/Claudiu-Munteanu/automationexercise-performance-tests-jmeter/actions/workflows/performance-test.yml/badge.svg" alt="CI" width="600"/>
+  </a>
+</p>
+<p align="center">
+  <a href="https://claudiu-munteanu.github.io/automationexercise-performance-tests-jmeter/">
+    <img src="https://img.shields.io/badge/JMeter_Reports:-Click Here-4e7eff?logo=allure&logoColor=white" alt="JMeter Reports" width="340"/>
+  </a>
+</p>
 
-This project contains automated performance tests for the [Automation Exercise API](https://automationexercise.com/api_list), built using **Apache JMeter**.
+This repository contains **demo performance test project** created for showcasing my skills in writing and organizing a performance test plan using <strong>Apache JMeter</strong> and integrated with <strong>GitHub Actions</strong> for CI/CD.
 
-The primary goal is to simulate various user loads and measure the performance, scalability, and reliability of the API endpoints under stress.
+The tests target the publicly accessible APIs  at <a href="https://automationexercise.com/api_list">Automation Exercise</a>,  a site that offers dummy endpoints for practice and testing purposes.
 
-## 🛠️ Technologies Used
+> ⚠️ This is a portfolio project, not intended for production use.  
+> Its purpose is to demonstrate practical knowledge of performance testing tools, and best practices.
 
-| Tool           | Purpose                                                                    |
-|----------------|----------------------------------------------------------------------------|
-| Apache JMeter  | The core tool used for creating and running the performance test scenarios |
-| GitHub         | For version control and repository management                              |
+## 🛠️ Tech Stack
+
+| Tool              | Purpose                                                                    |
+|-------------------|----------------------------------------------------------------------------|
+| Apache JMeter     | The core tool used for creating and running the performance test scenarios |
+| GitHub Actions    | For automating the test execution, report generation, and deployment       |
+| GitHub Pages      | To host the live, interactive performance report dashboard                 |
+| jq                | A command-line JSON processor used to extract metrics from test results    |
+| IntelliJ IDEA     | Development environment                                                    |
 
 ## 📂 Project Structure
 The project follows a standardized structure to keep test assets, configuration, and results clearly separated.
 ```
 /automationexercise-performance-tests-jmeter
+├── .github/
+│   └── workflows/
+│       └── performance-test.yml
 ├── .gitignore
 ├── README.md
 ├── src/
@@ -33,25 +51,54 @@ The project follows a standardized structure to keep test assets, configuration,
         └── test-results.jtl
 ```
 
-## 📋 Prerequisites
-Before running the tests, please ensure you have the following installed:
-
-- Java JDK: JMeter requires Java 8 or higher.
-
-- Apache JMeter: The latest version is recommended.
-
-- JMETER_HOME Environment Variable: The included test script relies on an environment variable that points to your JMeter installation directory.
-    **macOS/Linux:**
-    ```sh
-    export JMETER_HOME="/path/to/your/apache-jmeter-x.y.z"
-    ```
-    **Windows:**
-    ```sh
-    export JMETER_HOME="/c/path/to/your/apache-jmeter-x.y.z"
-    ```
-
 ## ▶️ How to Run the Tests
-tbd
+### Using GitHub Actions (Recommended)
+The easiest way to run the performance tests is by using the integrated GitHub Actions workflow. 
+1. Navigate to the **Actions** tab in your GitHub repository.
+2. In the left sidebar, click on the **"JMeter Performance Test & Report"** workflow.
+3. Click the **"Run workflow"** dropdown button on the right.
+4. Enter your desired test parameters:
+   - **Number of Threads (users)**
+   - **Ramp-up period (seconds)**
+   - **Loop Count**
+5. Click the **"Run workflow"** button to start the test.
+
+### Locally (for Development & Debugging)
+To run the tests on your local machine for script development, you'll need to have JMeter and Java installed.
+
+### Prerequisites
+- **Java JDK:** JMeter requires Java 8 or higher. 
+- **Apache JMeter:** The latest version is recommended. 
+- `JMETER_HOME` **Environment Variable:** The included test script relies on an environment variable that points to your JMeter installation directory. 
+  - **macOS/Linux:** `export JMETER_HOME="/path/to/your/apache-jmeter-x.y.z"`
+  - **Windows (Git Bash):** `export JMETER_HOME="/c/path/to/your/apache-jmeter-x.y.z"`
+
+### Execution Command
+Open your terminal, navigate to the project root, and run the following command. You can customize the -J parameters as needed.
+```sh
+# Clean previous results
+rm -rf target/
+
+# Run the test
+$JMETER_HOME/bin/jmeter \
+-n \
+-t "src/test/jmeter/Automation Exercise - Performance Tests - JMeter.jmx" \
+-Jthreads=50 \
+-Jrampup_time=5 \
+-Jloop_count=1 \
+-l "target/results/test-results.jtl" \
+-e \
+-o "target/reports"
+```
+
+
+After the run completes, you can view the generated HTML report by opening target/reports/index.html in your browser.
 
 ## 📊 Test Results and Reporting
-tbd
+Upon completion of a workflow run, the results are automatically processed and deployed to a live dashboard hosted on **GitHub Pages**.
+- **Central Dashboard:** A main index.html page provides a list of all historical test runs, with the most recent one highlighted.
+- **Latest Run Summary:** Key metrics (Average Response Time, Error Rate, Throughput) for the latest test are displayed prominently.
+- **Performance Chart:** An interactive chart visualizes the trend of average response times and error rates across all runs, making it easy to spot regressions or improvements. 
+- **Detailed Reports:** Each run links to the full, detailed HTML report generated by JMeter for in-depth analysis.
+
+To view the dashboard, navigate to the Settings tab of your repository, click on **Pages** in the left sidebar, and you will find the URL to your published site.
